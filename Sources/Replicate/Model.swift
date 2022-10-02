@@ -1,7 +1,8 @@
 import struct Foundation.Date
+import AnyCodable
 
 /// A machine learning model hosted on Replicate.
-public struct Model: Identifiable, Decodable {
+public struct Model: Identifiable {
     public typealias ID = String
 
     /// The visibility of the model.
@@ -14,7 +15,7 @@ public struct Model: Identifiable, Decodable {
     }
 
     /// A version of a model.
-    public struct Version: Identifiable, Decodable {
+    public struct Version: Identifiable {
         public typealias ID = String
 
         /// The ID of the version.
@@ -22,6 +23,9 @@ public struct Model: Identifiable, Decodable {
 
         /// When the version was created.
         public let createdAt: Date
+
+        /// An OpenAPI description of the model inputs and outputs.
+        public let openAPISchema: AnyCodable
     }
 
     /// A collection of models.
@@ -71,4 +75,28 @@ public struct Model: Identifiable, Decodable {
 
     /// The latest version of the model, if any.
     public let latestVersion: Version?
+}
+
+// MARK: - Decodable
+
+extension Model: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case owner
+        case name
+        case url
+        case githubURL = "github_url"
+        case paperURL = "paper_url"
+        case licenseURL = "license_url"
+        case description
+        case visibility
+        case latestVersion = "lastest_version"
+    }
+}
+
+extension Model.Version: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case createdAt = "created_at"
+        case openAPISchema = "openapi_schema"
+    }
 }

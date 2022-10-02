@@ -16,7 +16,7 @@ final class ClientTests: XCTestCase {
     }
 
     func testGetPrediction() async throws {
-        let prediction = try await client.getPrediction(id: "ufawqhfynnddngldkgtslldrkq")
+        let prediction = try await client.getPrediction("ufawqhfynnddngldkgtslldrkq")
         XCTAssertEqual(prediction.id, "ufawqhfynnddngldkgtslldrkq")
     }
 
@@ -28,13 +28,13 @@ final class ClientTests: XCTestCase {
     }
 
     func testGetModel() async throws {
-        let model = try await client.getModel(owner: "replicate", name: "hello-world")
+        let model = try await client.getModel("replicate/hello-world")
         XCTAssertEqual(model.owner, "replicate")
         XCTAssertEqual(model.name, "hello-world")
     }
 
     func testGetModelVersions() async throws {
-        let versions = try await client.getModelVersions(owner: "replicate", name: "hello-world")
+        let versions = try await client.getModelVersions("replicate/hello-world")
         XCTAssertNil(versions.previous)
         XCTAssertNil(versions.next)
         XCTAssertEqual(versions.results.count, 2)
@@ -42,7 +42,7 @@ final class ClientTests: XCTestCase {
     }
 
     func testGetModelVersion() async throws {
-        let version = try await client.getModelVersion(owner: "replicate", name: "hello-world", version: "5c7d5dc6dd8bf75c1acaa8565735e7986bc5b66206b55cca93cb72c9bf15ccaa")
+        let version = try await client.getModelVersion("replicate/hello-world", version: "5c7d5dc6dd8bf75c1acaa8565735e7986bc5b66206b55cca93cb72c9bf15ccaa")
         XCTAssertEqual(version.id, "5c7d5dc6dd8bf75c1acaa8565735e7986bc5b66206b55cca93cb72c9bf15ccaa")
     }
 

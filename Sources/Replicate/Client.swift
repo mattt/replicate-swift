@@ -85,7 +85,7 @@ public class Client {
     /// Get a prediction
     ///
     /// - Parameter id: The ID of the prediction you want to fetch.
-    public func getPrediction(id: Prediction.ID) async throws -> Prediction {
+    public func getPrediction(_ id: Prediction.ID) async throws -> Prediction {
         return try await fetch(.get, "predictions/\(id)")
     }
 
@@ -101,41 +101,44 @@ public class Client {
     /// Get a model
     ///
     /// - Parameters:
-    ///    - owner: The name of the user or organization that owns the model.
-    ///    - name: The name of the model.
-    public func getModel(owner: String,
-                         name: String)
+    ///    - id: The model identifier, comprising
+    ///          the name of the user or organization that owns the model and
+    ///          the name of the model.
+    ///          For example, "stability-ai/stable-diffusion".
+    public func getModel(_ id: Model.ID)
         async throws -> Model
     {
-        return try await fetch(.get, "models/\(owner)/\(name)")
+        return try await fetch(.get, "models/\(id)")
     }
 
     /// Get a list of model versions
     ///
     /// - Parameters:
-    ///    - owner: The name of the user or organization that owns the model.
-    ///    - name: The name of the model.
+    ///    - id: The model identifier, comprising
+    ///          the name of the user or organization that owns the model and
+    ///          the name of the model.
+    ///          For example, "stability-ai/stable-diffusion".
     ///    - cursor: A pointer to a page of results to fetch.
-    public func getModelVersions(owner: String,
-                                 name: String,
+    public func getModelVersions(_ id: Model.ID,
                                  cursor: Pagination<Model.Version>.Cursor? = nil)
         async throws -> Pagination<Model.Version>
     {
-        return try await fetch(.get, "models/\(owner)/\(name)/versions", cursor: cursor)
+        return try await fetch(.get, "models/\(id)/versions", cursor: cursor)
     }
 
     /// Get a model version
     ///
     /// - Parameters:
-    ///    - owner: The name of the user or organization that owns the model.
-    ///    - name: The name of the model.
+    ///    - id: The model identifier, comprising
+    ///          the name of the user or organization that owns the model and
+    ///          the name of the model.
+    ///          For example, "stability-ai/stable-diffusion".
     ///    - version: The ID of the version.
-    public func getModelVersion(owner: String,
-                                name: String,
+    public func getModelVersion(_ id: Model.ID,
                                 version: Model.Version.ID)
         async throws -> Model.Version
     {
-        return try await fetch(.get, "models/\(owner)/\(name)/\(version)")
+        return try await fetch(.get, "models/\(id)/versions/\(version)")
     }
 
     /// Get a collection of models
@@ -205,11 +208,15 @@ public class Client {
         let (data, response) = try await session.data(for: request)
 
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .iso8601WithFractionalSeconds
+
+//        let json = String(data: data, encoding: .utf8)
+        let object = try! JSONSerialization.jsonObject(with: data)
+        print(object)
 
         switch (response as? HTTPURLResponse)?.statusCode {
         case (200..<300)?:
+
             return try decoder.decode(T.self, from: data)
         default:
             if let error = try? decoder.decode(Error.self, from: data) {
