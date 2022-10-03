@@ -67,19 +67,21 @@ struct GenerateModelCommand: AsyncParsableCommand {
 
                      identifier: "Greeting",
                      inheritanceClause: TypeInheritanceClause {
-                       InheritedType(typeName: "String")
+                         InheritedType(typeName: "String", trailingComma: .comma)
                         
-                       InheritedType(typeName: "Codable")
+                         InheritedType(typeName: "Codable", trailingComma: .comma)
                        InheritedType(typeName: "Equatable")
                      }, modifiersBuilder: {
                          TokenSyntax.private
                      },
-                     membersBuilder:
-                    {
+                     membersBuilder: {
                         EnumCaseDecl(elementsBuilder: {
-                       EnumCaseElement(
-                         identifier: "goodMorning",
-                         rawValue: InitializerClause(equal: .equal, value: StringLiteralExpr("Good Morning")))
+                            for (name, _) in input.properties {
+                            EnumCaseElement(
+                             identifier: name,
+                             rawValue: InitializerClause(equal: .equal, value: StringLiteralExpr(name)))
+                            }
+
 
                      })
                    })
