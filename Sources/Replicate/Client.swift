@@ -6,12 +6,25 @@ import FoundationNetworking
 
 import AnyCodable
 
+
 /// A Replicate HTTP API client.
 ///
 /// See https://replicate.com/docs/reference/http
 public class Client {
-    /// A paginated collection of results.
-    public struct Pagination<Result> {
+    /// A namespace for pagination cursor and page types.
+    public enum Pagination {
+        /// A paginated collection of results.
+        public struct Page <Result> {
+            /// A pointer to the previous page of results
+            public let previous: Cursor?
+
+            /// A pointer to the next page of results.
+            public let next: Cursor?
+
+            /// The results for this page.
+            public let results: [Result]
+        }
+
         /// A pointer to a page of results.
         public struct Cursor: RawRepresentable, Hashable {
             public var rawValue: String
@@ -20,15 +33,6 @@ public class Client {
                 self.rawValue = rawValue
             }
         }
-
-        /// A pointer to the previous page of results
-        public let previous: Cursor?
-
-        /// A pointer to the next page of results.
-        public let next: Cursor?
-
-        /// The results for this page.
-        public let results: [Result]
     }
 
     private let token: String
@@ -74,11 +78,13 @@ public class Client {
     ///         If there are network problems,
     ///         we will retry the webhook a few times,
     ///         so make sure it can be safely called more than once.
-    public func createPrediction(_ id: Model.Version.ID,
-                                 input: [String: AnyEncodable],
-                                 webhook: URL? = nil)
-        async throws -> Prediction
-    {
+    public func createPrediction<Input: Codable, Output: Codable>(
+        _ type: Prediction<Input, Output>.Type = AnyPrediction,
+        version id: Model.Version.ID,
+        input: Input,
+        webhook: URL? = nil,
+        wait: Bool = false
+    ) async throws -> Prediction<Input, Output> {
         var params: [String: AnyEncodable] = [
             "version": "\(id)",
             "input": AnyEncodable(input)
@@ -88,28 +94,42 @@ public class Client {
             params["webhook"] = "\(webhook.absoluteString)"
         }
 
-        return try await fetch(.post, "predictions", params: params)
+        var prediction: Prediction<Input, Output> = try await fetch(.post, "predictions", params: params)
+        if wait {
+            try await prediction.wait(with: self)
+            return prediction
+        } else {
+            return prediction
+        }
     }
 
     /// Get a prediction
     ///
     /// - Parameter id: The ID of the prediction you want to fetch.
-    public func getPrediction(_ id: Prediction.ID) async throws -> Prediction {
+    public func getPrediction<Input: Codable, Output: Codable>(
+        _ type: Prediction<Input, Output>.Type = AnyPrediction,
+        id: Prediction.ID
+    ) async throws -> Prediction<Input, Output> {
         return try await fetch(.get, "predictions/\(id)")
     }
 
     /// Cancel a prediction
     ///
     /// - Parameter id: The ID of the prediction you want to fetch.
-    public func cancelPrediction(_ id: Prediction.ID) async throws -> Prediction {
+    public func cancelPrediction<Input: Codable, Output: Codable>(
+        _ type: Prediction<Input, Output>.Type = AnyPrediction,
+        id: Prediction.ID
+    ) async throws -> Prediction<Input, Output> {
         return try await fetch(.post, "predictions/\(id)/cancel")
     }
 
     /// Get a list of predictions
     ///
     /// - Parameter cursor: A pointer to a page of results to fetch.
-    public func getPredictions(cursor: Pagination<Prediction>.Cursor? = nil)
-        async throws -> Pagination<Prediction>
+    public func getPredictions<Input: Codable, Output: Codable>(
+        _ type: Prediction<Input, Output>.Type = AnyPrediction,
+        cursor: Pagination.Cursor? = nil
+    ) async throws -> Pagination.Page<Prediction<Input, Output>>
     {
         return try await fetch(.get, "predictions", cursor: cursor)
     }
@@ -136,8 +156,8 @@ public class Client {
     ///          For example, "stability-ai/stable-diffusion".
     ///    - cursor: A pointer to a page of results to fetch.
     public func getModelVersions(_ id: Model.ID,
-                                 cursor: Pagination<Model.Version>.Cursor? = nil)
-        async throws -> Pagination<Model.Version>
+                                 cursor: Pagination.Cursor? = nil)
+        async throws -> Pagination.Page<Model.Version>
     {
         return try await fetch(.get, "models/\(id)/versions", cursor: cursor)
     }
@@ -178,7 +198,10 @@ public class Client {
         case post = "POST"
     }
 
-    private func fetch<T: Decodable>(_ method: Method, _ path: String, cursor: Pagination<T>.Cursor?) async throws -> Pagination<T> {
+    private func fetch<T: Decodable>(_ method: Method,
+                                     _ path: String,
+                                     cursor: Pagination.Cursor?)
+    async throws -> Pagination.Page<T> {
         var params: [String: AnyEncodable]? = nil
         if let cursor {
             params = ["cursor": "\(cursor)"]
@@ -187,7 +210,10 @@ public class Client {
         return try await fetch(method, path, params: params)
     }
 
-    private func fetch<T: Decodable>(_ method: Method, _ path: String, params: [String: AnyEncodable]? = nil) async throws -> T {
+    private func fetch<T: Decodable>(_ method: Method,
+                                     _ path: String,
+                                     params: [String: AnyEncodable]? = nil)
+    async throws -> T {
         var urlComponents = URLComponents(string: "https://api.replicate.com/v1/" + path)
         var httpBody: Data? = nil
 
@@ -234,6 +260,10 @@ public class Client {
                 throw error
             }
 
+            if let string = String(data: data, encoding: .utf8) {
+                throw Error(detail: "invalid response: \(response) \n \(string)")
+            }
+
             throw Error(detail: "invalid response: \(response)")
         }
     }
@@ -241,7 +271,7 @@ public class Client {
 
 // MARK: - Decodable
 
-extension Client.Pagination: Decodable where Result: Decodable {
+extension Client.Pagination.Page: Decodable where Result: Decodable {
     private enum CodingKeys: String, CodingKey {
         case results
         case previous
@@ -250,8 +280,8 @@ extension Client.Pagination: Decodable where Result: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.previous = try? container.decode(Cursor.self, forKey: .previous)
-        self.next = try? container.decode(Cursor.self, forKey: .next)
+        self.previous = try? container.decode(Client.Pagination.Cursor.self, forKey: .previous)
+        self.next = try? container.decode(Client.Pagination.Cursor.self, forKey: .next)
         self.results = try container.decode([Result].self, forKey: .results)
     }
 }
