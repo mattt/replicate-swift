@@ -24,6 +24,16 @@ struct GenerateModelCommand: AsyncParsableCommand {
                   """)
     var modelTypeName: String?
 
+    /// The path to the JSON configuration file that should be loaded.
+    ///
+    /// If a `.swift-format` file exists in the current directory
+    /// and no value is specified for this option,
+    /// that configuration file is used.
+    /// Otherwise, a default configuration is used.
+    @Option(name: .customLong("configuration"),
+            help: "The path to a swift-lint configuration file.")
+    var configurationPath: String?
+
     mutating func run() async throws {
         guard let token = ProcessInfo.processInfo.environment["REPLICATE_API_TOKEN"],
               !token.isEmpty
@@ -230,9 +240,21 @@ struct GenerateModelCommand: AsyncParsableCommand {
         let format = Format(indentWidth: 4)
         let syntax = source.buildSyntax(format: format)
 
-        var configuration = Configuration()
-        configuration.indentation = .spaces(4)
-        configuration.lineBreakAroundMultilineExpressionChainComponents = true
+
+        var configuration: Configuration
+        do {
+            let defaultPath = ".swift-lint"
+            if configurationPath == nil, FileManager.default.fileExists(atPath: defaultPath) {
+                configuration = try Configuration(contentsOf: URL(fileURLWithPath: defaultPath))
+            }
+            if let configurationPath {
+                configuration = try Configuration(contentsOf: URL(fileURLWithPath: configurationPath))
+            } else {
+                configuration = Configuration()
+                configuration.indentation = .spaces(4)
+                configuration.lineBreakAroundMultilineExpressionChainComponents = true
+            }
+        }
         let formatter = SwiftFormatter(configuration: configuration)
 
         var standardOutput = FileHandle.standardOutput
