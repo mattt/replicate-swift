@@ -9,6 +9,7 @@ import SwiftSyntaxBuilder
 import SwiftFormat
 import SwiftFormatConfiguration
 
+/// Generates Swift code for a Replicate model.
 @main
 struct GenerateModelCommand: AsyncParsableCommand {
     /// The model id.
@@ -278,7 +279,6 @@ private func camelcase(_ string: String, uppercasingFirstLetter: Bool = true) ->
                      }
                  }.joined(separator: "")
 }
-
 
 private func swiftDocumentationForParameters(_ properties: OrderedDictionary<String, JSONSchema>) -> Trivia {
     guard !properties.isEmpty else { return .zero }
