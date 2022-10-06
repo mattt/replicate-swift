@@ -11,17 +11,19 @@ import SwiftFormatConfiguration
 
 @main
 struct GenerateModelCommand: AsyncParsableCommand {
+    /// The model id.
     @Argument(help: "The model id.")
     var modelID: Model.ID
 
+    /// The model version id.
     @Argument(help: "The model version id.")
     var versionID: Model.Version.ID?
 
+    /// The name of the generated model type.
+    ///
+    /// If unspecified, a normalized form of the model name is used.
     @Option(name: .customLong("name"),
-            help: """
-                  The name of the generated model type.
-                  If unspecified, a normalized form of the model name is used.
-                  """)
+            help: "The name of the generated model type.")
     var modelTypeName: String?
 
     /// The path to the JSON configuration file that should be loaded.
